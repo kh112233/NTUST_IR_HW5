@@ -62,33 +62,7 @@ class BERTTrainer:
 
         # Setting the path that saving weights
         self.save_path = "./weights/"
-    
-    def test(self, load_weights=False):
-        if load_weights != False:
-            print('Loading pretrained weights...')
-            self.bert_finetune.load_state_dict(torch.load(load_weights))
-        else:
-            self.bert_finetune.load_state_dict(self.best_BCE_weight)
-        self.iteration(self.test_data, split="test")
-    
-    def _early_stop(self, val_BCE, val_acc):
-        if val_BCE < self.best_BCE:
-            self.best_BCE = val_BCE
-            self.best_BCE_weight = copy.deepcopy(self.bert_finetune.state_dict()) 
-            torch.save(self.best_BCE_weight,
-                        f"./weights/first500/loss/" + str(self.best_BCE)[:8] + ".ckpt") #看你要存到哪裡
-            self.patience = 0
-            
-        if val_acc > self.best_acc:
-            self.best_acc = val_acc
-            self.best_acc_weight = copy.deepcopy(self.bert_finetune.state_dict()) 
-            torch.save(self.best_acc_weight,
-                        f"./weights/first500/accuracy/" + str(self.best_acc)[:8] + ".ckpt") #看你要存到哪裡
-            self.patience = 0
         
-        else:
-            self.patience+=1
-
     def _valid_function(self):
         self.bert_finetune.eval() 
         with torch.no_grad():
@@ -234,27 +208,3 @@ class BERTTrainer:
                     break
             if early_stop_flag:
                 break
-
-
-        """
-        if split == "test":
-            self.bert_finetune.eval()
-            with torch.no_grad():
-                sigmoid = nn.Sigmoid()
-                y_logits = np.zeros(0)
-
-                for idx, batch in enumerate(dataloader):
-                    time_elapsed = time.time() - since
-                    print(f'process: {idx}/{len(dataloader)} {idx/len(dataloader)*100:0.1f}% | ' \
-                            f'time: {time_elapsed // 60:.0f}m {time_elapsed % 60:.0f}s\r', end="")
-                    batch = [*(tensor.cuda() for tensor in batch)]
-                    ids, token_type, attention_mask = batch
-
-                    outputs = self.bert_finetune(input_ids=ids, token_type_ids=token_type, attention_mask=attention_mask)
-                    logits = outputs[0]
-                    y_logits = np.concatenate([y_logits, logits.cpu().numpy().reshape(logits.shape[0])])
-
-                y_scores = sigmoid(torch.Tensor(y_logits))
-                self.save(y_scores)
-            print()
-        """

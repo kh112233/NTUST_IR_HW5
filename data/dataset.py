@@ -62,11 +62,7 @@ class QueryDocumentDataset(Dataset):
         return ids, token_type, attention_mask
     
     def __len__(self):
-        if self.train:
-            return len(self.df)
-        #else:
-        #    doc_size = len(self.raw_data['381'])
-        #    return int(len(self.raw_data)*doc_size)
+        return len(self.df)
 
     def __getitem__(self, idx):
 
@@ -86,20 +82,16 @@ class QueryDocumentDataset(Dataset):
             return ids, token_type, attention_mask, label
 
         else:
-            doc_size = len(self.raw_data['381'])
-            query_name = str(idx//doc_size + 381)
-            doc_name = self.raw_data[query_name][idx%doc_size]
-
-            with open(f'{self.test_dir}/query/{query_name}') as q:
+            with open(f'{self.query_dir}/query/{self.df[idx][0]}') as q:
                 query = q.read()
-            with open(f'{self.doc_dir}/{doc_name}') as d:
+            with open(f'{self.doc_dir}/{self.df[idx][1]}') as d:
                 doc = d.read()
 
             ids, token_type, attention_mask = self._preprocess(query, doc)
             ids = torch.LongTensor(ids)
             token_type = torch.LongTensor(token_type)
             attention_mask = torch.LongTensor(attention_mask)
-            return ids, token_type, attention_mask
+            return ids, token_type, attention_mask, self.df[idx][0], self.df[idx][1]
 
 def train_collate_fn(batch):
     ids, token_type, attention_mask, labels = zip(*batch)
@@ -110,11 +102,11 @@ def train_collate_fn(batch):
     return ids, token_type, attention_mask, labels
 
 def test_collate_fn(batch):
-    ids, token_type, attention_mask = zip(*batch)
+    ids, token_type, attention_mask, qname, dname = zip(*batch)
     ids = nn.utils.rnn.pad_sequence(ids, batch_first=True)
     token_type = nn.utils.rnn.pad_sequence(token_type, batch_first=True)
     attention_mask = nn.utils.rnn.pad_sequence(attention_mask, batch_first=True)
-    return ids, token_type, attention_mask   
+    return ids, token_type, attention_mask , qname, dname
 
 def train_valid_split(train_dir, valid_ratio):
     # Get training data
@@ -126,24 +118,5 @@ def train_valid_split(train_dir, valid_ratio):
     np.random.shuffle(raw_train_data)
     valid_data = raw_train_data[:int(len(raw_train_data)*valid_ratio)]
     train_data = raw_train_data[int(len(raw_train_data)*valid_ratio):]
-
-    """
-    train_dataset = QueryDocumentDataset(train_dir=train_dir, test_dir=test_dir, doc_dir=doc_dir, raw_data=train_data)
-    valid_dataset = QueryDocumentDataset(train_dir=train_dir, test_dir=test_dir, doc_dir=doc_dir, raw_data=val_data)
-
-    train_dataloader = DataLoader(train_dataset, batch_size=batch_size, shuffle=True, num_workers=4, collate_fn=train_collate_fn)
-    val_dataloader = DataLoader(valid_dataset, batch_size=batch_size*8, shuffle=True, num_workers=4, collate_fn=train_collate_fn)
-
-    # Get testing data
-    doc_list = [doc for doc in listdir(doc_dir) if isfile(join(doc_dir, doc))]
-    with open(test_dir+"/query_list.txt") as f:
-        query_list = f.read().split()
-    raw_test_dict = {}
-    for query in query_list:
-        raw_test_dict[query] = doc_list
-    
-    test_dataset = QueryDocumentDataset(train_dir=train_dir, test_dir=test_dir, doc_dir=doc_dir, raw_data=raw_test_dict, train=False)
-    test_dataloader = DataLoader(test_dataset, batch_size=512, shuffle=False, num_workers=4, collate_fn=test_collate_fn)    
-    """
 
     return train_data, valid_data
