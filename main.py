@@ -1,11 +1,14 @@
 import argparse
 
 import torch
+from torch.utils.data import DataLoader
 
 import random
 import numpy as np
 
+from transformers import*
 from data import QueryDocumentDataset, train_valid_split, train_collate_fn
+from bertTrainer import BERTTrainer
 
 # Set Seed
 SEED = 42
@@ -22,22 +25,35 @@ def main(args):
 
     ratio = args.train_valid_ratio
     batch_size = args.batch_size
+    accm_batch_size=32
      
     train = args.train
-
     verbose = args.verbose
 
     if(train == 0):
         if(verbose==2):
-            print(f"Splitting the training data with {ratio*100} ratio.")
+            print(f"Splitting the training data with {ratio*100}% ratio.")
         train, valid = train_valid_split(train_dir, ratio)
 
         if(verbose==2):
             print("Creating dataset and dataloader.")
         train_data = QueryDocumentDataset(train_dir, doc_dir, train)
         valid_data = QueryDocumentDataset(train_dir, doc_dir, valid)
-        train_dataloader = DataLoader(train_dataset, batch_size=batch_size, shuffle=True, num_workers=4, collate_fn=train_collate_fn)
-        valid_dataloader = DataLoader(valid_dataset, batch_size=batch_size*8, shuffle=False, num_workers=4, collate_fn=train_collate_fn)
+        train_dataloader = DataLoader(train_data, batch_size=batch_size, shuffle=True, num_workers=4, collate_fn=train_collate_fn)
+        valid_dataloader = DataLoader(valid_data, batch_size=batch_size*8, shuffle=False, num_workers=4, collate_fn=train_collate_fn)
+
+        if(verbose==2):
+            print("Creating Bert Classification model.")
+        bert_finetune = BertForSequenceClassification.from_pretrained('bert-base-uncased', num_labels=1)
+
+        trainer = BERTTrainer(bert_finetune=bert_finetune,
+                          train_dataloader=train_dataloader, valid_dataloader=valid_dataloader,
+                          batch_size = batch_size, accm_batch_size = accm_batch_size, lr = 2e-5,
+                          with_cuda=True)
+        
+        if(verbose==2):
+            print("Start Trainnig.")
+        trainer.train(early_stop="BCE")
 
 
 if __name__ == '__main__':
@@ -49,9 +65,9 @@ if __name__ == '__main__':
     parser.add_argument("--test_dir", type=str, default="./data/test/" ,required=False, help="The directory of test data.")
     parser.add_argument("--doc_dir", type=str, default="./data/doc/", required=False, help="The directory of documents.")
 
-    # Setting training parameter
+    # Setting tr
     parser.add_argument("--train_valid_ratio", type=int, default=0.1, required=False, help='Ratio of train data and valid data.')
-    parser.add_argument("--batch_size", type=int, default=8, required=False, help='Batch size of model.')
+    parser.add_argument("--batch_size", type=int, default=2, required=False, help='Batch size of model.')
     parser.add_argument("--epochs", type=int, default=15, required=False, help='epochs number for train one discriminator and generator.')
 
     # Setting train or test flag
@@ -83,13 +99,5 @@ if __name__ == '__main__':
 
     trainer.set_test_dataloader(test_dataloader, test_dict)
     trainer.test(load_weights=weight_path)
-        if(verbose==2):
-            print("Creating Bert Classification model.")
-        bert_finetune = BertForSequenceClassification.from_pretrained('bert-base-uncased', num_labels=1)
-
-        trainer = BERTTrainer(bert_finetune=bert_finetune,
-                          train_dataloader=train_dataloader, val_dataloader=val_dataloader,
-                          batch_size = batch_size, accm_batch_size = accm_batch_size, lr = 2e-5,
-                          with_cuda=True)
     
     """

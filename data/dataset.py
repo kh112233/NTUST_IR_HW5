@@ -2,6 +2,7 @@ import pandas as pd
 import numpy as np
 
 import torch
+from torch import nn
 from torch.utils.data import Dataset
 
 import re
@@ -62,7 +63,7 @@ class QueryDocumentDataset(Dataset):
     
     def __len__(self):
         if self.train:
-            return len(self.raw_data)
+            return len(self.df)
         #else:
         #    doc_size = len(self.raw_data['381'])
         #    return int(len(self.raw_data)*doc_size)
